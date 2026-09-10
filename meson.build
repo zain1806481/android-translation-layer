@@ -20,11 +20,7 @@ bootclasspath_dir = libart_dep.get_variable(pkgconfig: 'libdir') / 'java'
 
 bootclasspath = bootclasspath_dir / 'core-all_classes.jar' + ':' + bootclasspath_dir / 'core-junit_classes.jar' + ':' + bootclasspath_dir / 'junit-runner_classes.jar'
 
-marshal_files = gnome.genmarshal('marshal',
-	sources: 'src/api-impl-jni/widgets/marshal.list',
-	valist_marshallers: true,
-	internal: true,
-)
+marshal_files = files('src/api-impl-jni/widgets/marshal.c')
 
 mpris = gnome.gdbus_codegen('mpris-dbus',
                             'src/api-impl-jni/media/org.mpris.MediaPlayer2.xml',
