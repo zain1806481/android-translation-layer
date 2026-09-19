@@ -1,5 +1,6 @@
 package android.app;
 
+import android.accounts.AccountManager;
 import android.annotation.Nullable;
 import android.annotation.UnsupportedAppUsage;
 import android.app.SearchManager;
@@ -140,6 +141,8 @@ public final class ContextImpl extends Context {
 	@Override
 	public Object getSystemService(String name) {
 		switch (name) {
+			case "account":
+				return AccountManager.getInstance();
 			case "window":
 				return new WindowManagerImpl();
 			case "clipboard":
