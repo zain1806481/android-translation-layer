@@ -1,5 +1,11 @@
 project('android_translation_layer', ['c', 'java'], default_options: ['b_lundef=false'])
 
+# Keep local dependency headers usable on Arch installations where Meson's JNI
+# metadata points at a bundled JRE without development headers.
+add_project_arguments('-I/usr/lib/jvm/java-17-openjdk/include',
+                      '-I/usr/lib/jvm/java-17-openjdk/include/linux',
+                      '-I'+get_option('prefix')+'/include', language: 'c')
+
 gnome = import('gnome')
 fs = import('fs')
 
@@ -20,11 +26,7 @@ bootclasspath_dir = libart_dep.get_variable(pkgconfig: 'libdir') / 'java'
 
 bootclasspath = bootclasspath_dir / 'core-all_classes.jar' + ':' + bootclasspath_dir / 'core-junit_classes.jar' + ':' + bootclasspath_dir / 'junit-runner_classes.jar'
 
-marshal_files = gnome.genmarshal('marshal',
-	sources: 'src/api-impl-jni/widgets/marshal.list',
-	valist_marshallers: true,
-	internal: true,
-)
+marshal_files = files('src/api-impl-jni/widgets/marshal.c')
 
 mpris = gnome.gdbus_codegen('mpris-dbus',
                             'src/api-impl-jni/media/org.mpris.MediaPlayer2.xml',

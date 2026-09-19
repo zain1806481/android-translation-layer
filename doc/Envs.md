@@ -54,6 +54,24 @@ The following environment variables are recognized by the main executable:
 
 ---
 
+`ATL_ACCOUNT_BACKEND` - `native` (default) or `remote`. Selects AccountManager storage.
+                      `remote` runs `$ATL_ACCOUNT_HELPER` (default `atl-account-helper` on PATH)
+                      with one JSON request line on stdin and expects one JSON response on stdout.
+                      Host bridges (Waydroid/adb) stay out of tree.
+
+---
+
+`ATL_ACCOUNT_STORE` - path for NativeAccountStore JSON (default
+                      `~/.local/share/android_translation_layer/accounts.json`).
+                      Atomic write + mode 0600 when possible. Legacy `_accounts.tsv`
+                      is imported once if present.
+
+---
+
+`ATL_ACCOUNT_HELPER` - absolute path to the remote helper executable when using remote backend.
+
+---
+
 `ATL_SKIP_NATIVES_EXTRACTION` - if set, natives will not be extracted automatically;
                                 it's already possible to replace a native lib, but removing it entirely will normally result
                                 in it getting re-extracted, which would prevent you from replacing libs with native ones
