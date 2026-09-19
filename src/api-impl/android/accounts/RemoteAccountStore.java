@@ -15,10 +15,11 @@ import java.util.List;
  * Env:
  *   ATL_ACCOUNT_HELPER — absolute path to an executable that reads one JSON
  *   request line on stdin and writes one JSON response line on stdout.
- *   Default: looks for `atl-account-helper` on PATH.
+ *   Default: looks for {@code atl-account-helper} on PATH.
  *
- * Protocol matches NativeAccountStore / bridge docs (listAccounts, addAccount).
- * The helper may wrap Waydroid scaffolding; that glue stays outside ATL.
+ * Protocol: listAccounts, addAccount, removeAccount, getPassword,
+ * getUserData, setUserData, peekAuthToken, setAuthToken, invalidateAuthToken.
+ * Helper backends (local / waydroid / adb) live outside ATL.
  */
 final class RemoteAccountStore implements AccountStore {
 	private static final String TAG = "RemoteAccountStore";
@@ -52,15 +53,10 @@ final class RemoteAccountStore implements AccountStore {
 		}
 		synchronized (lock) {
 			try {
-				int id = nextId++;
-				StringBuilder req = new StringBuilder();
-				req.append("{\"v\":1,\"type\":\"request\",\"id\":").append(id);
-				req.append(",\"method\":\"addAccount\",\"params\":{");
-				req.append("\"name\":").append(jsonString(account.name)).append(',');
-				req.append("\"type\":").append(jsonString(account.type)).append(',');
-				req.append("\"password\":").append(jsonString(password != null ? password : ""));
-				req.append("}}");
-				String resp = transact(req.toString());
+				String resp = call("addAccount",
+					"\"name\":" + jsonString(account.name)
+						+ ",\"type\":" + jsonString(account.type)
+						+ ",\"password\":" + jsonString(password != null ? password : ""));
 				return resp != null && resp.contains("\"ok\":true");
 			} catch (Exception e) {
 				Log.w(TAG, "addAccount failed: " + e);
@@ -71,47 +67,148 @@ final class RemoteAccountStore implements AccountStore {
 
 	@Override
 	public boolean removeAccountExplicitly(Account account) {
-		return false;
+		if (account == null || account.name == null || account.type == null) {
+			return false;
+		}
+		synchronized (lock) {
+			try {
+				String resp = call("removeAccount",
+					"\"name\":" + jsonString(account.name)
+						+ ",\"type\":" + jsonString(account.type));
+				return resp != null && resp.contains("\"ok\":true")
+					&& resp.contains("\"removed\":true");
+			} catch (Exception e) {
+				Log.w(TAG, "removeAccount failed: " + e);
+				return false;
+			}
+		}
 	}
 
 	@Override
 	public String getPassword(Account account) {
-		return null;
+		if (account == null || account.name == null || account.type == null) {
+			return null;
+		}
+		synchronized (lock) {
+			try {
+				String resp = call("getPassword",
+					"\"name\":" + jsonString(account.name)
+						+ ",\"type\":" + jsonString(account.type));
+				if (resp == null || !resp.contains("\"ok\":true")) {
+					return null;
+				}
+				return extractResultString(resp, "password");
+			} catch (Exception e) {
+				Log.w(TAG, "getPassword failed: " + e);
+				return null;
+			}
+		}
 	}
 
 	@Override
 	public String getUserData(Account account, String key) {
-		return null;
+		if (account == null || account.name == null || account.type == null || key == null) {
+			return null;
+		}
+		synchronized (lock) {
+			try {
+				String resp = call("getUserData",
+					"\"name\":" + jsonString(account.name)
+						+ ",\"type\":" + jsonString(account.type)
+						+ ",\"key\":" + jsonString(key));
+				if (resp == null || !resp.contains("\"ok\":true")) {
+					return null;
+				}
+				return extractResultString(resp, "value");
+			} catch (Exception e) {
+				Log.w(TAG, "getUserData failed: " + e);
+				return null;
+			}
+		}
 	}
 
 	@Override
-	public void setUserData(Account account, String key, String value) {}
+	public void setUserData(Account account, String key, String value) {
+		if (account == null || account.name == null || account.type == null || key == null) {
+			return;
+		}
+		synchronized (lock) {
+			try {
+				String valueJson = value == null ? "null" : jsonString(value);
+				call("setUserData",
+					"\"name\":" + jsonString(account.name)
+						+ ",\"type\":" + jsonString(account.type)
+						+ ",\"key\":" + jsonString(key)
+						+ ",\"value\":" + valueJson);
+			} catch (Exception e) {
+				Log.w(TAG, "setUserData failed: " + e);
+			}
+		}
+	}
 
 	@Override
 	public String peekAuthToken(Account account, String authTokenType) {
-		return null;
+		if (account == null || account.name == null || account.type == null || authTokenType == null) {
+			return null;
+		}
+		synchronized (lock) {
+			try {
+				String resp = call("peekAuthToken",
+					"\"name\":" + jsonString(account.name)
+						+ ",\"type\":" + jsonString(account.type)
+						+ ",\"authTokenType\":" + jsonString(authTokenType));
+				if (resp == null || !resp.contains("\"ok\":true")) {
+					return null;
+				}
+				return extractResultString(resp, "authToken");
+			} catch (Exception e) {
+				Log.w(TAG, "peekAuthToken failed: " + e);
+				return null;
+			}
+		}
 	}
 
 	@Override
-	public void setAuthToken(Account account, String authTokenType, String authToken) {}
+	public void setAuthToken(Account account, String authTokenType, String authToken) {
+		if (account == null || account.name == null || account.type == null || authTokenType == null) {
+			return;
+		}
+		synchronized (lock) {
+			try {
+				String tokenJson = authToken == null ? "null" : jsonString(authToken);
+				call("setAuthToken",
+					"\"name\":" + jsonString(account.name)
+						+ ",\"type\":" + jsonString(account.type)
+						+ ",\"authTokenType\":" + jsonString(authTokenType)
+						+ ",\"authToken\":" + tokenJson);
+			} catch (Exception e) {
+				Log.w(TAG, "setAuthToken failed: " + e);
+			}
+		}
+	}
 
 	@Override
-	public void invalidateAuthToken(String accountType, String authToken) {}
+	public void invalidateAuthToken(String accountType, String authToken) {
+		if (authToken == null) {
+			return;
+		}
+		synchronized (lock) {
+			try {
+				String typeJson = accountType == null ? "null" : jsonString(accountType);
+				call("invalidateAuthToken",
+					"\"accountType\":" + typeJson
+						+ ",\"authToken\":" + jsonString(authToken));
+			} catch (Exception e) {
+				Log.w(TAG, "invalidateAuthToken failed: " + e);
+			}
+		}
+	}
 
 	private Account[] listAccounts(String type) {
 		synchronized (lock) {
 			try {
-				int id = nextId++;
-				StringBuilder req = new StringBuilder();
-				req.append("{\"v\":1,\"type\":\"request\",\"id\":").append(id);
-				req.append(",\"method\":\"listAccounts\",\"params\":{");
-				if (type == null) {
-					req.append("\"type\":null");
-				} else {
-					req.append("\"type\":").append(jsonString(type));
-				}
-				req.append("}}");
-				String resp = transact(req.toString());
+				String typeJson = type == null ? "null" : jsonString(type);
+				String resp = call("listAccounts", "\"type\":" + typeJson);
 				if (resp == null || !resp.contains("\"ok\":true")) {
 					return new Account[0];
 				}
@@ -121,6 +218,15 @@ final class RemoteAccountStore implements AccountStore {
 				return new Account[0];
 			}
 		}
+	}
+
+	private String call(String method, String paramsBody) throws Exception {
+		int id = nextId++;
+		StringBuilder req = new StringBuilder();
+		req.append("{\"v\":1,\"type\":\"request\",\"id\":").append(id);
+		req.append(",\"method\":").append(jsonString(method));
+		req.append(",\"params\":{").append(paramsBody).append("}}");
+		return transact(req.toString());
 	}
 
 	private String transact(String requestLine) throws Exception {
@@ -180,6 +286,51 @@ final class RemoteAccountStore implements AccountStore {
 		return out.toArray(new Account[0]);
 	}
 
+	/** Prefer value inside {@code "result":{...}} when present. */
+	private static String extractResultString(String json, String field) {
+		int resultIdx = json.indexOf("\"result\"");
+		if (resultIdx >= 0) {
+			int brace = json.indexOf('{', resultIdx);
+			if (brace >= 0) {
+				int end = matchingBrace(json, brace);
+				if (end > brace) {
+					String value = extractStringField(json.substring(brace, end + 1), field);
+					if (value != null || json.substring(brace, end + 1).contains("\"" + field + "\":null")) {
+						return value;
+					}
+				}
+			}
+		}
+		return extractStringField(json, field);
+	}
+
+	private static int matchingBrace(String s, int openIdx) {
+		int depth = 0;
+		boolean inStr = false;
+		for (int i = openIdx; i < s.length(); i++) {
+			char c = s.charAt(i);
+			if (inStr) {
+				if (c == '\\' && i + 1 < s.length()) {
+					i++;
+				} else if (c == '"') {
+					inStr = false;
+				}
+				continue;
+			}
+			if (c == '"') {
+				inStr = true;
+			} else if (c == '{') {
+				depth++;
+			} else if (c == '}') {
+				depth--;
+				if (depth == 0) {
+					return i;
+				}
+			}
+		}
+		return -1;
+	}
+
 	private static String extractStringField(String obj, String field) {
 		String key = "\"" + field + "\"";
 		int i = obj.indexOf(key);
@@ -190,15 +341,22 @@ final class RemoteAccountStore implements AccountStore {
 		if (colon < 0) {
 			return null;
 		}
+		int p = colon + 1;
+		while (p < obj.length() && Character.isWhitespace(obj.charAt(p))) {
+			p++;
+		}
+		if (p < obj.length() && obj.startsWith("null", p)) {
+			return null;
+		}
 		int q1 = obj.indexOf('"', colon + 1);
 		if (q1 < 0) {
 			return null;
 		}
 		StringBuilder sb = new StringBuilder();
-		for (int p = q1 + 1; p < obj.length(); p++) {
-			char c = obj.charAt(p);
-			if (c == '\\' && p + 1 < obj.length()) {
-				sb.append(obj.charAt(++p));
+		for (int idx = q1 + 1; idx < obj.length(); idx++) {
+			char c = obj.charAt(idx);
+			if (c == '\\' && idx + 1 < obj.length()) {
+				sb.append(obj.charAt(++idx));
 			} else if (c == '"') {
 				return sb.toString();
 			} else {
