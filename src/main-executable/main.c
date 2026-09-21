@@ -44,6 +44,36 @@ char *apk_path;
 
 // standard Gtk Application stuff, more or less
 
+static void action_summon_android_apps(GSimpleAction *action, GVariant *parameter, gpointer user_data)
+{
+	(void)action;
+	(void)parameter;
+	(void)user_data;
+	g_autoptr(GError) error = NULL;
+	if (!g_spawn_command_line_async("omarchy menu summon android-apps", &error))
+		g_warning("ATL: failed to summon android-apps menu: %s", error ? error->message : "?");
+}
+
+static void atl_install_android_apps_menu(GtkApplication *app, GtkWidget *header_bar)
+{
+	const GActionEntry entries[] = {
+		{ "android-apps", action_summon_android_apps, NULL, NULL, NULL },
+	};
+	g_action_map_add_action_entries(G_ACTION_MAP(app), entries, G_N_ELEMENTS(entries), NULL);
+
+	/* Feeds the window decoration appmenu (hamburger / ⋮ next to close) */
+	GMenu *menu = g_menu_new();
+	g_menu_append(menu, "Android Apps", "app.android-apps");
+	gtk_application_set_menubar(app, G_MENU_MODEL(menu));
+	g_object_unref(menu);
+
+	/* Always-visible control next to Back (decoration appmenu can sit under toasts) */
+	GtkWidget *btn = gtk_button_new_from_icon_name("view-more-symbolic");
+	gtk_widget_set_tooltip_text(btn, "Android Apps");
+	gtk_actionable_set_action_name(GTK_ACTIONABLE(btn), "app.android-apps");
+	gtk_header_bar_pack_start(GTK_HEADER_BAR(header_bar), btn);
+}
+
 gboolean app_exit(GtkWindow *self, JNIEnv *env) // TODO: do more cleanup?
 {
 	activity_close_all();
@@ -656,6 +686,8 @@ static void open(GtkApplication *app, GFile **files, gint nfiles, const gchar *h
 	GtkWidget *back_button = back_button_new();
 
 	gtk_header_bar_pack_start(GTK_HEADER_BAR(header_bar), back_button);
+	/* Pack apps control on the start side — right-side chrome is often covered by crash toasts */
+	atl_install_android_apps_menu(app, header_bar);
 	gtk_window_set_titlebar(GTK_WINDOW(window), header_bar);
 	GtkDropTarget *drop_target = gtk_drop_target_new(G_TYPE_STRING, GDK_ACTION_COPY);
 	g_signal_connect(drop_target, "drop", G_CALLBACK(on_drop), NULL);

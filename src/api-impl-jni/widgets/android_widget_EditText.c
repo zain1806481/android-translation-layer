@@ -29,22 +29,80 @@ struct changed_callback_data {
 	jmethodID getText;
 };
 
+/* GtkEditable offsets are Unicode characters; Android uses UTF-16 offsets. */
+static int utf16_length(const char *text, int chars)
+{
+	int length = 0;
+	for (const char *p = text; *p && chars != 0; p = g_utf8_next_char(p), chars--)
+		length += g_utf8_get_char(p) > 0xffff ? 2 : 1;
+	return length;
+}
+
+static void before_change(GtkEditable *self, int start, int before, int count)
+{
+	JNIEnv *env = get_jni_env();
+	g_object_set_data(G_OBJECT(self), "change_start", GINT_TO_POINTER(start));
+	g_object_set_data(G_OBJECT(self), "change_before", GINT_TO_POINTER(before));
+	g_object_set_data(G_OBJECT(self), "change_count", GINT_TO_POINTER(count));
+	(*env)->PushLocalFrame(env, 16);
+	jstring text = _JSTRING(gtk_editable_get_text(self));
+	GList *listeners = g_object_get_data(G_OBJECT(self), "text_changed_listeners");
+	for (GList *l = listeners; l; l = l->next) {
+		jclass klass = _CLASS(l->data);
+		jmethodID method = _METHOD(klass, "beforeTextChanged", "(Ljava/lang/CharSequence;III)V");
+		(*env)->CallVoidMethod(env, l->data, method, text, start, before, count);
+		if ((*env)->ExceptionCheck(env)) {
+			(*env)->ExceptionDescribe(env);
+			(*env)->ExceptionClear(env);
+		}
+		(*env)->DeleteLocalRef(env, klass);
+	}
+	(*env)->PopLocalFrame(env, NULL);
+}
+
+static void inserting_cb(GtkEditable *self, const char *text, int length, int *position, gpointer data)
+{
+	char *inserted = g_strndup(text, length);
+	before_change(self, utf16_length(gtk_editable_get_text(self), *position), 0, utf16_length(inserted, -1));
+	g_free(inserted);
+}
+
+static void deleting_cb(GtkEditable *self, int start, int end, gpointer data)
+{
+	const char *text = gtk_editable_get_text(self);
+	int first = utf16_length(text, start);
+	before_change(self, first, utf16_length(text, end) - first, 0);
+}
+
 static void changed_cb(GtkEditable *self, jobject listener)
 {
 	JNIEnv *env = get_jni_env();
 
+	if ((*env)->ExceptionCheck(env))
+		return;
+	(*env)->PushLocalFrame(env, 16);
 	const char *text = gtk_editable_get_text(self);
 	jclass spannable_string_builder = (*env)->FindClass(env, "android/text/SpannableStringBuilder");
 	jmethodID spannable_string_builder_constructor = _METHOD(spannable_string_builder, "<init>", "(Ljava/lang/CharSequence;)V");
 	jobject text_obj = (*env)->NewObject(env, spannable_string_builder, spannable_string_builder_constructor, _JSTRING(text));
 	jmethodID onTextChanged = _METHOD(_CLASS(listener), "onTextChanged", "(Ljava/lang/CharSequence;III)V");
-	(*env)->CallVoidMethod(env, listener, onTextChanged, text_obj, 0, 0, strlen(text));
-	if ((*env)->ExceptionCheck(env))
+	(*env)->CallVoidMethod(env, listener, onTextChanged, text_obj,
+	    GPOINTER_TO_INT(g_object_get_data(G_OBJECT(self), "change_start")),
+	    GPOINTER_TO_INT(g_object_get_data(G_OBJECT(self), "change_before")),
+	    GPOINTER_TO_INT(g_object_get_data(G_OBJECT(self), "change_count")));
+	if ((*env)->ExceptionCheck(env)) {
 		(*env)->ExceptionDescribe(env);
+		(*env)->ExceptionClear(env);
+		(*env)->PopLocalFrame(env, NULL);
+		return;
+	}
 	jmethodID listener_method = _METHOD(_CLASS(listener), "afterTextChanged", "(Landroid/text/Editable;)V");
 	(*env)->CallVoidMethod(env, listener, listener_method, text_obj);
-	if ((*env)->ExceptionCheck(env))
+	if ((*env)->ExceptionCheck(env)) {
 		(*env)->ExceptionDescribe(env);
+		(*env)->ExceptionClear(env);
+	}
+	(*env)->PopLocalFrame(env, NULL);
 }
 
 JNIEXPORT void JNICALL Java_android_widget_EditText_native_1addTextChangedListener(JNIEnv *env, jobject this, jlong widget_ptr, jobject listener)
@@ -53,6 +111,11 @@ JNIEXPORT void JNICALL Java_android_widget_EditText_native_1addTextChangedListen
 	listener = _REF(listener);
 
 	GList *listeners = g_object_get_data(G_OBJECT(gtk_text), "text_changed_listeners");
+	if (!g_object_get_data(G_OBJECT(gtk_text), "change_signals_connected")) {
+		g_signal_connect(gtk_text, "insert-text", G_CALLBACK(inserting_cb), NULL);
+		g_signal_connect(gtk_text, "delete-text", G_CALLBACK(deleting_cb), NULL);
+		g_object_set_data(G_OBJECT(gtk_text), "change_signals_connected", GINT_TO_POINTER(1));
+	}
 	listeners = g_list_append(listeners, listener);
 	g_object_set_data(G_OBJECT(gtk_text), "text_changed_listeners", listeners);
 	g_signal_connect(GTK_EDITABLE(gtk_text), "changed", G_CALLBACK(changed_cb), listener);

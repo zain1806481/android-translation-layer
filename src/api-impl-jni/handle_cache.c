@@ -138,6 +138,9 @@ void set_up_handle_cache(JNIEnv *env)
 	handle_cache.webview.class = _REF((*env)->FindClass(env, "android/webkit/WebView"));
 	handle_cache.webview.internalGetAssetManager = _METHOD(handle_cache.webview.class, "internalGetAssetManager", "()Landroid/content/res/AssetManager;");
 	handle_cache.webview.internalLoadChanged = _METHOD(handle_cache.webview.class, "internalLoadChanged", "(ILjava/lang/String;)V");
+	handle_cache.webview.internalJsResult = _METHOD(handle_cache.webview.class, "internalJsResult", "(Landroid/webkit/ValueCallback;Ljava/lang/String;)V");
+	handle_cache.webview.internalPermissionRequest = _METHOD(handle_cache.webview.class, "internalPermissionRequest", "(JLjava/lang/String;[Ljava/lang/String;)V");
+	handle_cache.webview.internalShowFileChooser = _METHOD(handle_cache.webview.class, "internalShowFileChooser", "(JZ[Ljava/lang/String;)Z");
 
 	handle_cache.canvas.class = _REF((*env)->FindClass(env, "android/graphics/Canvas"));
 	handle_cache.canvas.drawText = _METHOD(handle_cache.canvas.class, "drawText", "(Ljava/lang/CharSequence;IIFFLandroid/graphics/Paint;)V");

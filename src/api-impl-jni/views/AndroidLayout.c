@@ -20,6 +20,16 @@ static int make_measure_spec(int layout_size, int for_size)
 
 extern int snapshot_in_progress;
 
+/* GTK callbacks cannot propagate Java exceptions through the native main loop. */
+static gboolean layout_exception_pending(JNIEnv *env)
+{
+	if (!(*env)->ExceptionCheck(env))
+		return FALSE;
+	(*env)->ExceptionDescribe(env);
+	(*env)->ExceptionClear(env);
+	return TRUE;
+}
+
 static void android_layout_measure(GtkLayoutManager *layout_manager, GtkWidget *widget, GtkOrientation orientation, int for_size, int *minimum, int *natural, int *minimum_baseline, int *natural_baseline)
 {
 	int widthMeasureSpec = 0;
@@ -27,7 +37,13 @@ static void android_layout_measure(GtkLayoutManager *layout_manager, GtkWidget *
 	AndroidLayout *layout = ATL_ANDROID_LAYOUT(layout_manager);
 	JNIEnv *env = get_jni_env();
 
-	/* if we're inside a shanpshot, this must be getting called purely to make Gtk call gtk_widget_clear_resize_queued */
+	/* Always provide valid outputs, including when Java measurement fails. */
+	*minimum = *natural = 0;
+	*minimum_baseline = *natural_baseline = -1;
+	if (layout_exception_pending(env))
+		return;
+
+	/* if we're inside a snapshot, only clear GTK's resize queue. */
 	if (snapshot_in_progress)
 		return;
 
@@ -39,25 +55,39 @@ static void android_layout_measure(GtkLayoutManager *layout_manager, GtkWidget *
 		// if layout params say match_parent, but GTK doesn't specify the dimension, fall back to old specification if available
 		if (widthMeasureSpec == -1)
 			widthMeasureSpec = _GET_INT_FIELD(layout->view, "oldWidthMeasureSpec");
+		if (layout_exception_pending(env))
+			return;
 		if (heightMeasureSpec == -1)
 			heightMeasureSpec = _GET_INT_FIELD(layout->view, "oldHeightMeasureSpec");
+		if (layout_exception_pending(env))
+			return;
 		if (widthMeasureSpec != -1 && heightMeasureSpec != -1) {
 			(*env)->CallVoidMethod(env, layout->view, handle_cache.view.measure, widthMeasureSpec, heightMeasureSpec);
-			if ((*env)->ExceptionCheck(env)) {
-				(*env)->ExceptionDescribe(env);
-				(*env)->ExceptionClear(env);
-			}
+			if (layout_exception_pending(env))
+				return;
 		}
 	}
 
 	if (orientation == GTK_ORIENTATION_HORIZONTAL) {
 		*natural = (*env)->CallIntMethod(env, layout->view, handle_cache.view.getMeasuredWidth);
+		if (layout_exception_pending(env)) {
+			*natural = 0;
+			return;
+		}
 		*minimum = heightMeasureSpec && !widthMeasureSpec ? *natural
 		                                                  : (*env)->CallIntMethod(env, layout->view, handle_cache.view.getSuggestedMinimumWidth);
 	} else if (orientation == GTK_ORIENTATION_VERTICAL) {
 		*natural = (*env)->CallIntMethod(env, layout->view, handle_cache.view.getMeasuredHeight);
+		if (layout_exception_pending(env)) {
+			*natural = 0;
+			return;
+		}
 		*minimum = widthMeasureSpec && !heightMeasureSpec ? *natural
 		                                                  : (*env)->CallIntMethod(env, layout->view, handle_cache.view.getSuggestedMinimumHeight);
+	}
+	if (layout_exception_pending(env)) {
+		*minimum = *natural = 0;
+		return;
 	}
 	if (*natural < *minimum)
 		*natural = *minimum;
@@ -74,14 +104,15 @@ static void android_layout_allocate(GtkLayoutManager *layout_manager, GtkWidget 
 
 	AndroidLayout *layout = ATL_ANDROID_LAYOUT(layout_manager);
 	JNIEnv *env = get_jni_env();
+	if (layout_exception_pending(env))
+		return;
 	if (!width && !height) {
 		width = layout->real_width;
 		height = layout->real_height;
 	}
 
 	(*env)->CallVoidMethod(env, layout->view, handle_cache.view.layoutInternal, width, height);
-	if ((*env)->ExceptionCheck(env))
-		(*env)->ExceptionDescribe(env);
+	layout_exception_pending(env);
 }
 
 static GtkSizeRequestMode android_layout_get_request_mode(GtkLayoutManager *layout_manager, GtkWidget *widget)

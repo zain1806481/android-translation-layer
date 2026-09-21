@@ -78,9 +78,9 @@ public class PopupWindow {
 		native_setContentView(popover, view == null ? 0 : view.widget);
 	}
 
-	public int getMaxAvailableHeight(View anchor, int yOffset) { return 500; }
+	public int getMaxAvailableHeight(View anchor, int yOffset) { return 800; }
 
-	public int getMaxAvailableHeight(View anchor, int yOffset, boolean ignoreKeyboard) { return 500; }
+	public int getMaxAvailableHeight(View anchor, int yOffset, boolean ignoreKeyboard) { return 800; }
 
 	public void setOutsideTouchable(boolean touchable) {
 		/* FIXME: the semantics are different, this seems to specifically exist for cases
@@ -104,10 +104,15 @@ public class PopupWindow {
 	}
 
 	public void showAsDropDown(View anchor, int xoff, int yoff) {
-		if (!anchor.isAttachedToWindow()) {
-			Log.e("PopupWindow", "anchor is not attached to window");
+		if (anchor == null) {
+			Log.e("PopupWindow", "anchor is null");
 			return;
 		}
+		if (!anchor.isAttachedToWindow()) {
+			Log.w("PopupWindow", "anchor not attached yet; showing anyway");
+		}
+		Log.i("PopupWindow", "showAsDropDown anchor=" + anchor.getClass().getName()
+			+ " xoff=" + xoff + " yoff=" + yoff + " attached=" + anchor.isAttachedToWindow());
 		native_showAsDropDown(popover, anchor.widget, xoff, yoff, Gravity.NO_GRAVITY);
 	}
 

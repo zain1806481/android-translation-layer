@@ -10,11 +10,13 @@ extern GtkWindow *window;
 
 static gboolean on_close_request(GtkWidget *dialog, jobject jobj)
 {
-	printf("on_close_request\n");
+	fprintf(stderr, "ATL Dialog on_close_request dialog=%p\n", (void *)dialog);
+	fflush(stderr);
 	JNIEnv *env = get_jni_env();
 	jmethodID dismiss = _METHOD(_CLASS(jobj), "dismiss", "()V");
 	(*env)->CallVoidMethod(env, jobj, dismiss);
-	return FALSE;
+	/* Inhibit further GTK close handling; dismiss() owns teardown. */
+	return TRUE;
 }
 
 JNIEXPORT jlong JNICALL Java_android_app_Dialog_nativeInit(JNIEnv *env, jobject this)
@@ -22,7 +24,7 @@ JNIEXPORT jlong JNICALL Java_android_app_Dialog_nativeInit(JNIEnv *env, jobject 
 	GtkWidget *dialog = gtk_window_new();
 	gtk_window_set_transient_for(GTK_WINDOW(dialog), window);
 	gtk_window_set_child(GTK_WINDOW(dialog), gtk_box_new(GTK_ORIENTATION_VERTICAL, 1));
-	g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_window_destroy), dialog);
+	/* GtkWindow has no "response" signal (that is GtkDialog); close-request is enough. */
 	g_signal_connect(GTK_WINDOW(dialog), "close-request", G_CALLBACK(on_close_request), _REF(this));
 	return _INTPTR(g_object_ref(dialog));
 }
@@ -51,8 +53,11 @@ JNIEXPORT void JNICALL Java_android_app_Dialog_nativeShow(JNIEnv *env, jobject t
 
 JNIEXPORT void JNICALL Java_android_app_Dialog_nativeClose(JNIEnv *env, jobject this, jlong ptr)
 {
+	(void)env;
+	(void)this;
 	GtkWindow *dialog = GTK_WINDOW(_PTR(ptr));
-	gtk_window_close(dialog);
+	/* Hide instead of gtk_window_close to avoid re-entering close-request → dismiss. */
+	gtk_widget_set_visible(GTK_WIDGET(dialog), FALSE);
 }
 
 JNIEXPORT jboolean JNICALL Java_android_app_Dialog_nativeIsShowing(JNIEnv *env, jobject this, jlong ptr)

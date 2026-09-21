@@ -11,6 +11,17 @@ public class WebSettings {
 		HIGH,
 	}
 
+	private final WebView webView;
+
+	WebSettings(WebView webView) {
+		this.webView = webView;
+	}
+
+	/** @deprecated kept for apps that construct settings indirectly */
+	WebSettings() {
+		this.webView = null;
+	}
+
 	public static String getDefaultUserAgent(android.content.Context context) {
 		return "GDPR VIOLATION";
 	}
@@ -23,7 +34,10 @@ public class WebSettings {
 
 	public void setSupportMultipleWindows(boolean supportMultipleWindows) {}
 
-	public void setJavaScriptEnabled(boolean javaScriptEnabled) {}
+	public void setJavaScriptEnabled(boolean javaScriptEnabled) {
+		if (webView != null)
+			webView.applyJavaScriptEnabled(javaScriptEnabled);
+	}
 
 	public void setSavePassword(boolean savePassword) {}
 
@@ -61,9 +75,19 @@ public class WebSettings {
 
 	public void setBlockNetworkImage(boolean block) {}
 
-	public void setDomStorageEnabled(boolean flag) {}
+	public void setDomStorageEnabled(boolean flag) {
+		if (webView != null)
+			webView.applyDomStorageEnabled(flag);
+	}
 
-	public void setMediaPlaybackRequiresUserGesture(boolean require) {}
+	public void setMediaPlaybackRequiresUserGesture(boolean require) {
+		if (webView != null)
+			webView.applyMediaPlaybackRequiresUserGesture(require);
+	}
+
+	public void setSafeBrowsingEnabled(boolean enabled) {}
+
+	public void setNeedInitialFocus(boolean flag) {}
 
 	public void setJavaScriptCanOpenWindowsAutomatically(boolean flag) {}
 

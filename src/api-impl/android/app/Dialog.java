@@ -131,6 +131,7 @@ public class Dialog implements Window.Callback, DialogInterface {
 
 	public void dismiss() {
 		System.out.println("dismissing the Dialog " + Dialog.this);
+		new Exception("Dialog.dismiss caller").printStackTrace(System.out);
 		// HACK: dismissing the Dialog takes some time in AOSP, as the request goes back and forth between the application
 		// and the system server. We replicate this behavior by adding 10 ms delay.
 		// This Hack is required for NewPipe RouterActivity which has a race condition. It subscribes an rxJava observable
