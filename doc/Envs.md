@@ -54,6 +54,13 @@ The following environment variables are recognized by the main executable:
 
 ---
 
+---
+
+`ATL_ACCOUNT_STORE` - path for NativeAccountStore JSON (default under XDG data dir).
+                      Mode 0600 atomic JSON v1; legacy TSV is imported when present.
+
+---
+
 `ATL_SKIP_NATIVES_EXTRACTION` - if set, natives will not be extracted automatically;
                                 it's already possible to replace a native lib, but removing it entirely will normally result
                                 in it getting re-extracted, which would prevent you from replacing libs with native ones
