@@ -38,6 +38,21 @@ public class TextView extends View {
 	private int break_strategy = 0 /*BREAK_STRATEGY_SIMPLE*/;
 	private int hyphenation_frequency = 0 /*HYPHENATION_FREQUENCY_NONE*/;
 	private int gravity = Gravity.CENTER;
+	private int batchEditNesting = 0;
+
+	// GTK applies edits immediately; preserve Android's nested batch callbacks.
+	public void beginBatchEdit() {
+		if (batchEditNesting++ == 0)
+			onBeginBatchEdit();
+	}
+
+	public void endBatchEdit() {
+		if (batchEditNesting > 0 && --batchEditNesting == 0)
+			onEndBatchEdit();
+	}
+
+	public void onBeginBatchEdit() {}
+	public void onEndBatchEdit() {}
 
 	public TextView(Context context, AttributeSet attrs) {
 		this(context, attrs, 0);

@@ -48,6 +48,9 @@ public final class Bitmap {
 	long bytes = 0; // used by native function AndroidBitmap_lockPixels()
 	private boolean recycled = false;
 	boolean mutable = true;
+	/** Soft ARGB buffer for setPixel/getPixel; flushed into snapshot on texture use. */
+	private int[] pixelScratch;
+	private boolean pixelsDirty;
 
 	Bitmap(long texture) {
 		this(native_get_width(texture), native_get_height(texture), Config.ARGB_8888);
@@ -117,6 +120,7 @@ public final class Bitmap {
 	}
 
 	public synchronized long getTexture() {
+		flushPixelScratch();
 		if (texture == 0) {
 			texture = native_create_texture(snapshot, width, height, stride, config.gdk_memory_format);
 			snapshot = 0;
@@ -125,11 +129,55 @@ public final class Bitmap {
 	}
 
 	synchronized long getSnapshot() {
+		flushPixelScratch();
 		if (snapshot == 0) {
 			snapshot = native_create_snapshot(texture);
 			texture = 0;
 		}
 		return snapshot;
+	}
+
+	private void ensurePixelScratch() {
+		if (pixelScratch != null)
+			return;
+		pixelScratch = new int[width * height];
+		if (texture != 0) {
+			native_get_pixels(texture, pixelScratch, 0, width, 0, 0, width, height);
+		} else if (snapshot != 0) {
+			long tex = native_create_texture(snapshot, width, height, stride, config.gdk_memory_format);
+			snapshot = 0;
+			texture = tex;
+			native_get_pixels(texture, pixelScratch, 0, width, 0, 0, width, height);
+		}
+	}
+
+	private void flushPixelScratch() {
+		if (!pixelsDirty || pixelScratch == null)
+			return;
+		if (snapshot == 0) {
+			snapshot = native_create_snapshot(texture);
+			texture = 0;
+		}
+		native_set_pixels(snapshot, pixelScratch, 0, width, 0, 0, width, height);
+		pixelsDirty = false;
+	}
+
+	private void checkPixelXY(int x, int y) {
+		if (x < 0 || x >= width || y < 0 || y >= height)
+			throw new IllegalArgumentException("x=" + x + " y=" + y + " outside " + width + "x" + height);
+	}
+
+	public void setPixel(int x, int y, int color) {
+		checkPixelXY(x, y);
+		ensurePixelScratch();
+		pixelScratch[y * width + x] = color;
+		pixelsDirty = true;
+	}
+
+	public int getPixel(int x, int y) {
+		checkPixelXY(x, y);
+		ensurePixelScratch();
+		return pixelScratch[y * width + x];
 	}
 
 	public void eraseColor(int color) {
@@ -149,6 +197,8 @@ public final class Bitmap {
 		texture = 0;
 		snapshot = 0;
 		recycled = true;
+		pixelScratch = null;
+		pixelsDirty = false;
 	}
 
 	public int getRowBytes() {
@@ -223,6 +273,13 @@ public final class Bitmap {
 	}
 
 	public void setPixels(int[] pixels, int offset, int stride, int x, int y, int width, int height) {
+		if (pixelScratch != null) {
+			for (int row = 0; row < height; row++) {
+				System.arraycopy(pixels, offset + row * stride, pixelScratch, (y + row) * this.width + x, width);
+			}
+			pixelsDirty = true;
+			return;
+		}
 		native_set_pixels(getSnapshot(), pixels, offset, stride, x, y, width, height);
 	}
 

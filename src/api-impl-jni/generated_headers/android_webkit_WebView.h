@@ -265,6 +265,102 @@ JNIEXPORT void JNICALL Java_android_webkit_WebView_native_1loadDataWithBaseURL
 JNIEXPORT void JNICALL Java_android_webkit_WebView_native_1loadUrl
   (JNIEnv *, jobject, jlong, jstring);
 
+/*
+ * Class:     android_webkit_WebView
+ * Method:    native_getUrl
+ * Signature: (J)Ljava/lang/String;
+ */
+JNIEXPORT jstring JNICALL Java_android_webkit_WebView_native_1getUrl
+  (JNIEnv *, jobject, jlong);
+
+/*
+ * Class:     android_webkit_WebView
+ * Method:    native_canGoBack
+ * Signature: (J)Z
+ */
+JNIEXPORT jboolean JNICALL Java_android_webkit_WebView_native_1canGoBack
+  (JNIEnv *, jobject, jlong);
+
+/*
+ * Class:     android_webkit_WebView
+ * Method:    native_goBack
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_android_webkit_WebView_native_1goBack
+  (JNIEnv *, jobject, jlong);
+
+/*
+ * Class:     android_webkit_WebView
+ * Method:    native_setJavaScriptEnabled
+ * Signature: (JZ)V
+ */
+JNIEXPORT void JNICALL Java_android_webkit_WebView_native_1setJavaScriptEnabled
+  (JNIEnv *, jobject, jlong, jboolean);
+
+/*
+ * Class:     android_webkit_WebView
+ * Method:    native_setDomStorageEnabled
+ * Signature: (JZ)V
+ */
+JNIEXPORT void JNICALL Java_android_webkit_WebView_native_1setDomStorageEnabled
+  (JNIEnv *, jobject, jlong, jboolean);
+
+/*
+ * Class:     android_webkit_WebView
+ * Method:    native_setMediaPlaybackRequiresUserGesture
+ * Signature: (JZ)V
+ */
+JNIEXPORT void JNICALL Java_android_webkit_WebView_native_1setMediaPlaybackRequiresUserGesture
+  (JNIEnv *, jobject, jlong, jboolean);
+
+/*
+ * Class:     android_webkit_WebView
+ * Method:    native_evaluateJavascript
+ * Signature: (JLjava/lang/String;Landroid/webkit/ValueCallback;)V
+ */
+JNIEXPORT void JNICALL Java_android_webkit_WebView_native_1evaluateJavascript
+  (JNIEnv *, jobject, jlong, jstring, jobject);
+
+/*
+ * Class:     android_webkit_WebView
+ * Method:    native_permissionAllow
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_android_webkit_WebView_native_1permissionAllow
+  (JNIEnv *, jclass, jlong);
+
+/*
+ * Class:     android_webkit_WebView
+ * Method:    native_permissionDeny
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_android_webkit_WebView_native_1permissionDeny
+  (JNIEnv *, jclass, jlong);
+
+/*
+ * Class:     android_webkit_WebView
+ * Method:    native_fileChooserSelect
+ * Signature: (J[Ljava/lang/String;)V
+ */
+JNIEXPORT void JNICALL Java_android_webkit_WebView_native_1fileChooserSelect
+  (JNIEnv *, jclass, jlong, jobjectArray);
+
+/*
+ * Class:     android_webkit_WebView
+ * Method:    native_fileChooserCancel
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_android_webkit_WebView_native_1fileChooserCancel
+  (JNIEnv *, jclass, jlong);
+
+/*
+ * Class:     android_webkit_WebView
+ * Method:    native_fileChooserOpenGtk
+ * Signature: (JZLjava/lang/String;)V
+ */
+JNIEXPORT void JNICALL Java_android_webkit_WebView_native_1fileChooserOpenGtk
+  (JNIEnv *, jclass, jlong, jboolean, jstring);
+
 #ifdef __cplusplus
 }
 #endif

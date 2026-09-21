@@ -33,10 +33,34 @@ public interface WindowManager {
 
 		public LayoutParams(int w, int h, int type, int flags, int format) {
 			super(w, h);
+			this.type = type;
+			this.flags = flags;
+			this.format = format;
 		}
 
 		public LayoutParams() {}
 
 		public void setTitle(CharSequence title) {}
+
+		/** AOSP returns a bitfield of changed fields; apps only need the side effect. */
+		public int copyFrom(LayoutParams o) {
+			if (o == null)
+				return 0;
+			width = o.width;
+			height = o.height;
+			x = o.x;
+			y = o.y;
+			type = o.type;
+			flags = o.flags;
+			format = o.format;
+			windowAnimations = o.windowAnimations;
+			softInputMode = o.softInputMode;
+			alpha = o.alpha;
+			screenBrightness = o.screenBrightness;
+			token = o.token;
+			packageName = o.packageName;
+			layoutInDisplayCutoutMode = o.layoutInDisplayCutoutMode;
+			return 0;
+		}
 	}
 }

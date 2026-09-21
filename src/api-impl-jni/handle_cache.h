@@ -140,6 +140,9 @@ struct handle_cache {
 		jclass class;
 		jmethodID internalGetAssetManager;
 		jmethodID internalLoadChanged;
+		jmethodID internalJsResult;
+		jmethodID internalPermissionRequest;
+		jmethodID internalShowFileChooser;
 	} webview;
 	struct {
 		jclass class;
